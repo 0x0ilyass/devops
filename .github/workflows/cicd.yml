@@ -1,14 +1,14 @@
 name: CI/CD Pipeline
 
 on:
-  workflow_dispatch:  # Permet de déclencher manuellement
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  DOCKER_IMAGE: ilyass33/myapp:${{ github.sha }}  # Versionnement sémantique
+  DOCKER_IMAGE: ilyass33/myapp:${{ github.sha }}
 
 jobs:
   build-and-test:
@@ -25,15 +25,18 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          registry: docker.io
 
       - name: Build and Push
         uses: docker/build-push-action@v4
         with:
           context: ./bulletin-board-app
+          file: ./bulletin-board-app/Dockerfile
           tags: ${{ env.DOCKER_IMAGE }}, ilyass33/myapp:latest
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64  # Spécifiez l'architecture
 
   deploy-to-kubernetes:
     runs-on: ubuntu-latest
@@ -45,19 +48,20 @@ jobs:
       - name: Setup Kubernetes tools
         uses: azure/setup-kubectl@v3
         with:
-          version: "1.28"  # Version spécifique recommandée
+            version: "v1.31.6"  # Correspond à la version du cluster
+            architecture: "amd64"  # Architecture des nœuds (Ubuntu x86-64)
 
       - name: Configure access
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           mkdir -p ~/.kube
-          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-          kubectl version --client
+          echo "$KUBE_CONFIG" | base64 --decode > ~/.kube/config
           kubectl cluster-info
 
       - name: Deploy manifests
         run: |
-          kubectl apply -f k8s/ -R
-          kubectl rollout status deployment/myapp -n default --timeout=90s
-          kubectl get all -n default
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl rollout restart deployment/myapp  # Redémarrage progressif
+          kubectl wait --for=condition=Available deployment/myapp --timeout=300s
