@@ -53,11 +53,16 @@ jobs:
 
       - name: Configure access
         env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+            KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
-          mkdir -p ~/.kube
-          echo "$KUBE_CONFIG" | base64 --decode > ~/.kube/config
-          kubectl cluster-info
+            mkdir -p ~/.kube
+            echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+            echo "=== Contenu du kubeconfig (extrait) ==="
+            head -n 10 ~/.kube/config  # Affiche les 10 premières lignes
+            echo "=== Test de connexion au cluster ==="
+            kubectl cluster-info
+            kubectl get nodes
+  
 
       - name: Deploy manifests
         run: |
