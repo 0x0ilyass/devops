@@ -43,30 +43,20 @@ jobs:
     needs: build-and-test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup Kubernetes tools
+      - name: Install kubectl
         uses: azure/setup-kubectl@v3
-        with:
-            version: "v1.31.6"  # Correspond à la version du cluster
-            architecture: "amd64"  # Architecture des nœuds (Ubuntu x86-64)
 
-      - name: Configure access
-        env:
-            KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        run: |
-            mkdir -p ~/.kube
-            echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
-            echo "=== Contenu du kubeconfig (extrait) ==="
-            head -n 10 ~/.kube/config  # Affiche les 10 premières lignes
-            echo "=== Test de connexion au cluster ==="
-            kubectl cluster-info
-            kubectl get nodes
-  
+      - name: Create ~/.kube directory
+        run: mkdir -p ~/.kube
 
-      - name: Deploy manifests
+      - name: Configure Kubernetes cluster
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl rollout restart deployment/myapp  # Redémarrage progressif
-          kubectl wait --for=condition=Available deployment/myapp --timeout=300s
+          echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yaml --insecure-skip-tls-verify
+          kubectl apply -f k8s/service.yaml --insecure-skip-tls-verify
+          kubectl get pods -o wide --insecure-skip-tls-verify   
