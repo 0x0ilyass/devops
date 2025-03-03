@@ -59,4 +59,11 @@ jobs:
         run: |
           kubectl apply -f k8s/deployment.yaml --insecure-skip-tls-verify
           kubectl apply -f k8s/service.yaml --insecure-skip-tls-verify
-          kubectl get pods -o wide --insecure-skip-tls-verify   
+      - name: Update Kubernetes Deployment Image
+        run: |
+          kubectl set image deployment/myapp myapp=${{ env.DOCKER_IMAGE }} --insecure-skip-tls-verify
+          kubectl rollout restart deployment/myapp --insecure-skip-tls-verify
+
+      - name: Check the Pods
+        run: |
+          kubectl get pods -o wide --insecure-skip-tls-verify
